@@ -145,14 +145,15 @@ jobs:
       - name: Name the files and fill in the notes
         run: |
           version="${GITHUB_REF_NAME#v}"
-          name="files/CloudStream-Desktop-$version"
           mkdir files
-          mv artifacts/cloudstream-desktop-windows-x64/*.exe "$name-Windows-x64-Setup.exe"
-          mv artifacts/cloudstream-desktop-windows-x64/*.msi "$name-Windows-x64.msi"
-          mv artifacts/cloudstream-desktop-macos-apple-silicon/*.dmg "$name-macOS-Apple-Silicon.dmg"
-          mv artifacts/cloudstream-desktop-macos-intel/*.dmg "$name-macOS-Intel.dmg"
-          mv artifacts/cloudstream-desktop-linux-x64/*.deb "$name-Linux-x64.deb"
-          mv artifacts/cloudstream-desktop-linux-x64/*.rpm "$name-Linux-x64.rpm"
+          # Artifacts holding two file types keep each in a subfolder, so search for the file.
+          take() { mv "$(find "artifacts/cloudstream-desktop-$1" -name "*$2")" "files/CloudStream-Desktop-$version-$3"; }
+          take windows-x64 .exe Windows-x64-Setup.exe
+          take windows-x64 .msi Windows-x64.msi
+          take macos-apple-silicon .dmg macOS-Apple-Silicon.dmg
+          take macos-intel .dmg macOS-Intel.dmg
+          take linux-x64 .deb Linux-x64.deb
+          take linux-x64 .rpm Linux-x64.rpm
           sed "s/{{version}}/$version/g" .github/release-notes.md > notes.md
 
       - name: Publish the release
