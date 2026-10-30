@@ -88,7 +88,17 @@ jobs:
 
       - name: Build installers
         working-directory: app
-        run: npm run tauri build -- --config src-tauri/tauri.release.conf.json
+        shell: bash
+        run: npm run tauri build -- --config src-tauri/tauri.release.conf.json 2>&1 | tee build.log
+
+      # Puts the end of the log on the run's summary page, where it can be read without opening the job.
+      - name: Show why the build failed
+        if: failure()
+        working-directory: app
+        shell: bash
+        run: |
+          [ -f build.log ] || exit 0
+          echo "::error title=Build failed::$(tail -n 40 build.log | awk '{ printf "%s%%0A", $0 }')"
 
       - name: Check the packaged engine starts
         shell: bash
