@@ -51,8 +51,9 @@ tasks.shadowJar {
 // Trimmed runtime shipped inside the desktop installer, so users need no Java install.
 val jreDir = layout.buildDirectory.dir("jre")
 val jreModules = listOf(
-    "java.base", "java.desktop", "java.logging", "java.management", "java.naming", "java.net.http",
-    "java.scripting", "java.sql", "java.xml", "jdk.crypto.ec", "jdk.unsupported", "jdk.zipfs",
+    "java.base", "java.desktop", "java.instrument", "java.logging", "java.management", "java.naming",
+    "java.net.http", "java.scripting", "java.sql", "java.xml", "jdk.crypto.ec", "jdk.dynalink",
+    "jdk.unsupported", "jdk.zipfs",
 )
 
 tasks.register<Exec>("bundleJre") {
