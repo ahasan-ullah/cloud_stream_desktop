@@ -140,7 +140,7 @@ AppImage is turned off in `tauri.conf.json` because `linuxdeploy` fails when it 
 
 ### Publishing a release
 
-Pushing a `v*` tag also publishes a GitHub release once every platform has passed. The `release` job renames the installers and uses [release-notes.md](../.github/release-notes.md) as the page, filling in `{{version}}` from the tag. Before tagging, update that file and the version in `app/package.json` and `app/src-tauri/tauri.conf.json`.
+Pushing a `v*` tag also publishes a GitHub release once every platform has passed. The `release` job renames the installers and uses [release-notes.md](../.github/release-notes.md) as the page, filling in `{{version}}` from the tag. Before tagging, update that file and the version in `app/package.json`, `app/src-tauri/tauri.conf.json`, `app/src-tauri/Cargo.toml` and `app/src/views/Settings.svelte`.
 
 ## Engine API
 
