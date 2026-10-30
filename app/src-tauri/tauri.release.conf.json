@@ -4,6 +4,9 @@
     "resources": {
       "../../engine/build/libs/engine.jar": "engine/engine.jar",
       "../../engine/build/jre/": "jre/"
+    },
+    "macOS": {
+      "signingIdentity": "-"
     }
   }
 }

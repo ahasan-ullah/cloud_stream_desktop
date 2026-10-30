@@ -1,0 +1,4 @@
+# Unix scripts must keep LF on every checkout, including Windows CI runners.
+*.sh text eol=lf
+engine/gradlew text eol=lf
+*.bat text eol=crlf
