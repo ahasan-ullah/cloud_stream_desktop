@@ -1,0 +1,58 @@
+[package]
+name = "cloudstream-desktop"
+version = "0.1.0"
+description = "Lightweight desktop client for CloudStream plugins"
+edition = "2021"
+rust-version = "1.82"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+# Native folder picker for the downloads location (used from Rust only).
+tauri-plugin-dialog = "2"
+tower = { version = "0.5", default-features = false, features = ["util"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "io-util", "net", "sync", "time"] }
+# Default TLS = native-tls (SChannel on Windows, Security.framework on macOS): no bundled OpenSSL.
+reqwest = { version = "0.12", features = ["json", "stream"] }
+axum = { version = "0.8", default-features = false, features = ["http1", "tokio", "query"] }
+futures-util = { version = "0.3", default-features = false, features = ["alloc"] }
+# Serves finished downloads (with Range support) to the player.
+tower-http = { version = "0.6", features = ["fs"] }
+# AES-128 HLS segment decryption for downloads (pure Rust).
+aes = "0.8"
+cbc = { version = "0.1", features = ["alloc"] }
+url = "2"
+uuid = { version = "1", features = ["v4"] }
+# Poster thumbnails (pure-Rust decoders): the webview decodes images at full size, so posters are
+# shrunk to card size here to keep its memory down.
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "gif"] }
+
+# Unoptimized image decoding is ~10-20x slower, which leaves posters blank in `tauri dev`.
+# Optimize just the image stack in dev builds; release builds are fully optimized anyway.
+[profile.dev.package.image]
+opt-level = 3
+[profile.dev.package.zune-jpeg]
+opt-level = 3
+[profile.dev.package.zune-core]
+opt-level = 3
+[profile.dev.package.image-webp]
+opt-level = 3
+[profile.dev.package.png]
+opt-level = 3
+[profile.dev.package.fdeflate]
+opt-level = 3
+[profile.dev.package.gif]
+opt-level = 3
+[profile.dev.package.weezl]
+opt-level = 3
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true
