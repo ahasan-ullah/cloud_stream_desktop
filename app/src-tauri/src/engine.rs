@@ -1,12 +1,20 @@
 //! Supervises the headless CloudStream engine (a JVM sidecar) and forwards API calls to it.
 
-use std::{collections::HashMap, path::PathBuf, process::Stdio, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::Write,
+    path::{Path, PathBuf},
+    process::Stdio,
+    sync::Arc,
+    time::Duration,
+};
 
 use serde::Serialize;
 use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::{
-    io::{AsyncBufReadExt, AsyncRead, BufReader},
+    io::{AsyncBufRead, AsyncBufReadExt, AsyncRead, BufReader},
     process::{Child, Command},
     sync::Mutex,
 };
@@ -106,11 +114,12 @@ impl Engine {
             "engine.jar not found. Build it with `./gradlew shadowJar` in engine/ or set CS_ENGINE_JAR.".to_string()
         })?;
         let java = find_java(app);
-        let data_dir = app
-            .path()
-            .app_data_dir()
-            .map_err(|e| e.to_string())?
-            .join("engine");
+        let data_dir = match std::env::var_os("CS_ENGINE_DATA") {
+            Some(dir) => PathBuf::from(dir),
+            None => app.path().app_data_dir().map_err(|e| e.to_string())?.join("engine"),
+        };
+        std::fs::create_dir_all(&data_dir).map_err(|e| e.to_string())?;
+        let log = Arc::new(EngineLog::create(data_dir.join("engine.log")));
 
         let mut cmd = Command::new(&java);
         cmd.args(JVM_ARGS)
@@ -132,17 +141,19 @@ impl Engine {
 
         let stdout = child.stdout.take().expect("piped stdout");
         let stderr = child.stderr.take().expect("piped stderr");
-        tokio::spawn(drain("engine:err", stderr));
+        let stderr_done = tokio::spawn(drain("engine:err", stderr, Arc::clone(&log)));
 
-        let mut lines = BufReader::new(stdout).lines();
+        let mut lines = BufReader::new(stdout);
         let wait_ready = async {
-            while let Ok(Some(line)) = lines.next_line().await {
+            while let Some(line) = read_line(&mut lines).await {
+                log.write(&line);
                 if let Some(port) = line.strip_prefix(READY_PREFIX) {
                     return port.trim().parse::<u16>().map_err(|e| e.to_string());
                 }
                 println!("[engine] {line}");
             }
-            Err("engine exited during startup (see log output)".to_string())
+            let _ = stderr_done.await;
+            Err(log.startup_failure())
         };
         let port = match tokio::time::timeout(STARTUP_TIMEOUT, wait_ready).await {
             Ok(Ok(port)) => port,
@@ -154,7 +165,8 @@ impl Engine {
         let this = Arc::clone(self);
         let app = app.clone();
         tokio::spawn(async move {
-            while let Ok(Some(line)) = lines.next_line().await {
+            while let Some(line) = read_line(&mut lines).await {
+                log.write(&line);
                 println!("[engine] {line}");
             }
             let mut inner = this.inner.lock().await;
@@ -210,10 +222,52 @@ impl Engine {
     }
 }
 
-async fn drain(tag: &'static str, reader: impl AsyncRead + Unpin) {
-    let mut lines = BufReader::new(reader).lines();
-    while let Ok(Some(line)) = lines.next_line().await {
+async fn drain(tag: &'static str, reader: impl AsyncRead + Unpin, log: Arc<EngineLog>) {
+    let mut lines = BufReader::new(reader);
+    while let Some(line) = read_line(&mut lines).await {
+        log.write(&line);
         eprintln!("[{tag}] {line}");
+    }
+}
+
+/// Reads a line, replacing invalid UTF-8 rather than stopping: the output isn't guaranteed to be
+/// UTF-8, and a stream that stopped being read would look like an engine exit and could block it.
+async fn read_line(reader: &mut (impl AsyncBufRead + Unpin)) -> Option<String> {
+    let mut bytes = Vec::new();
+    match reader.read_until(b'\n', &mut bytes).await {
+        Ok(n) if n > 0 => Some(String::from_utf8_lossy(&bytes).trim_end().to_string()),
+        _ => None,
+    }
+}
+
+/// The engine's output for this run. Installed apps have no console, so this is the only record.
+struct EngineLog {
+    path: PathBuf,
+    file: std::sync::Mutex<Option<File>>,
+    last_error: std::sync::Mutex<Option<String>>,
+}
+
+impl EngineLog {
+    fn create(path: PathBuf) -> Self {
+        let file = std::sync::Mutex::new(File::create(&path).ok());
+        Self { path, file, last_error: std::sync::Mutex::new(None) }
+    }
+
+    fn write(&self, line: &str) {
+        if let Some(file) = self.file.lock().unwrap().as_mut() {
+            let _ = writeln!(file, "{line}");
+        }
+        if line.contains("Error") || line.contains("Exception") {
+            *self.last_error.lock().unwrap() = Some(line.trim_matches(['#', ' ']).to_string());
+        }
+    }
+
+    fn startup_failure(&self) -> String {
+        let reason = match self.last_error.lock().unwrap().as_deref() {
+            Some(error) => format!(": {error}"),
+            None => String::new(),
+        };
+        format!("engine exited during startup{reason} (log: {})", self.path.display())
     }
 }
 
@@ -225,11 +279,16 @@ fn exe(name: &str) -> String {
     }
 }
 
+/// Tauri reports its folders as `\\?\C:\...` on Windows, and Java can't start from such a path.
+fn plain_path(path: &Path) -> PathBuf {
+    dunce::simplified(path).to_path_buf()
+}
+
 /// Bundled JRE first, then JAVA_HOME, then whatever `java` is on PATH.
 fn find_java(app: &AppHandle) -> PathBuf {
     let java = exe("java");
     if let Ok(res) = app.path().resource_dir() {
-        let bundled = res.join("jre").join("bin").join(&java);
+        let bundled = plain_path(&res).join("jre").join("bin").join(&java);
         if bundled.exists() {
             return bundled;
         }
@@ -248,7 +307,7 @@ fn find_jar(app: &AppHandle) -> Option<PathBuf> {
         return Some(PathBuf::from(p));
     }
     if let Ok(res) = app.path().resource_dir() {
-        let bundled = res.join("engine").join("engine.jar");
+        let bundled = plain_path(&res).join("engine").join("engine.jar");
         if bundled.exists() {
             return Some(bundled);
         }
@@ -260,4 +319,41 @@ fn find_jar(app: &AppHandle) -> Option<PathBuf> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(windows)]
+    #[test]
+    fn plain_path_removes_the_prefix_java_rejects() {
+        let path = plain_path(Path::new(r"\\?\C:\Users\me\AppData\Local\CloudStream Desktop"));
+        assert_eq!(path, PathBuf::from(r"C:\Users\me\AppData\Local\CloudStream Desktop"));
+    }
+
+    #[tokio::test]
+    async fn read_line_keeps_going_after_invalid_utf8() {
+        let mut output: &[u8] = b"caf\xe9\r\nENGINE_READY port=1\n";
+        assert_eq!(read_line(&mut output).await.as_deref(), Some("caf\u{fffd}"));
+        assert_eq!(read_line(&mut output).await.as_deref(), Some("ENGINE_READY port=1"));
+        assert_eq!(read_line(&mut output).await, None);
+    }
+
+    #[test]
+    fn startup_failure_names_the_error_and_the_log() {
+        let dir = std::env::temp_dir().join(format!("engine-log-{}", uuid::Uuid::new_v4().simple()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("engine.log");
+        let log = EngineLog::create(path.clone());
+        log.write("[main] INFO PluginHost - Loaded 0 plugin(s)");
+        log.write("Error: Unable to access jarfile engine.jar");
+        log.write("at the end of the output");
+        let message = log.startup_failure();
+        assert!(message.contains(": Error: Unable to access jarfile engine.jar"), "{message}");
+        assert!(message.contains(path.to_str().unwrap()), "{message}");
+        drop(log);
+        assert_eq!(std::fs::read_to_string(&path).unwrap().lines().count(), 3);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 }

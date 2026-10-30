@@ -424,11 +424,12 @@ dependencies = [
 
 [[package]]
 name = "cloudstream-desktop"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "aes",
  "axum",
  "cbc",
+ "dunce",
  "futures-util",
  "image",
  "reqwest 0.12.28",

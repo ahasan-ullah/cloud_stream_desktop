@@ -280,7 +280,7 @@ Open **Sources** in the player and try another one. The built-in player handles 
 <details>
 <summary><b>"CloudStream engine unavailable"</b></summary>
 
-Click **Retry connection**, or go to **Settings → Providers** and click **Restart**.
+Click **Retry connection**, or go to **Settings → Providers** and click **Restart**. If it keeps happening, the error names a log file called `engine.log`. Please attach it when you [open an issue](https://github.com/ahasan-ullah/cloud_stream_pc/issues).
 
 </details>
 
