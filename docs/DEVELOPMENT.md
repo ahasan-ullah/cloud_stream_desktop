@@ -138,6 +138,10 @@ AppImage is turned off in `tauri.conf.json` because `linuxdeploy` fails when it 
 
 [build.yml](../.github/workflows/build.yml) builds Windows, macOS (Apple Silicon and Intel) and Linux on every push to `main` and every `v*` tag, and you can start it from the Actions tab. Each build also starts the packaged engine with its bundled Java runtime ([check-engine.sh](../.github/scripts/check-engine.sh)) to catch a broken package. The installers are attached to the run as artifacts.
 
+### Publishing a release
+
+Pushing a `v*` tag also publishes a GitHub release once every platform has passed. The `release` job renames the installers and uses [release-notes.md](../.github/release-notes.md) as the page, filling in `{{version}}` from the tag. Before tagging, update that file and the version in `app/package.json` and `app/src-tauri/tauri.conf.json`.
+
 ## Engine API
 
 All `/api/*` routes need the `X-Engine-Token` header. The app generates a fresh token on each launch and passes it in `CS_ENGINE_TOKEN`.

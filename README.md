@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ahasan-ullah/cloud_stream_pc/releases/latest"><img src="https://img.shields.io/badge/Windows-Download-0078D4?style=for-the-badge&logo=windows11&logoColor=white" alt="Download for Windows"></a>
+  <a href="https://github.com/ahasan-ullah/cloud_stream_pc/releases/latest"><img src="https://img.shields.io/badge/Windows-Download-0078D4?style=for-the-badge&logo=data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHBhdGggZmlsbD0iI2ZmZiIgZD0iTTAgMy40IDkuOCAydjkuNUgwek0xMC45IDEuOCAyNCAwdjExLjVIMTAuOXpNMCAxMi41aDkuOFYyMkwwIDIwLjZ6TTEwLjkgMTIuNUgyNFYyNGwtMTMuMS0xLjh6Ii8%2BPC9zdmc%2B" alt="Download for Windows"></a>
   <a href="https://github.com/ahasan-ullah/cloud_stream_pc/releases/latest"><img src="https://img.shields.io/badge/macOS-Download-111111?style=for-the-badge&logo=apple&logoColor=white" alt="Download for macOS"></a>
   <a href="https://github.com/ahasan-ullah/cloud_stream_pc/releases/latest"><img src="https://img.shields.io/badge/Linux-Download-E95420?style=for-the-badge&logo=linux&logoColor=white" alt="Download for Linux"></a>
 </p>
@@ -121,7 +121,7 @@ Get the latest version from the **[Releases page](https://github.com/ahasan-ulla
 <details open>
 <summary><b>Windows</b></summary>
 
-1. Download the file ending in `x64-setup.exe`.
+1. Download the file ending in `Setup.exe`.
 2. Open it. If a blue "Windows protected your PC" screen appears, click **More info**, then **Run anyway**. This appears because the app isn't code-signed.
 3. Follow the installer. It doesn't need admin rights.
 
@@ -132,7 +132,7 @@ There is also an `.msi` file if you prefer that.
 <details>
 <summary><b>macOS</b></summary>
 
-1. Download the `.dmg` for your Mac: `aarch64` for Apple Silicon (M1 and newer), `x64` for Intel.
+1. Download the `.dmg` for your Mac: `Apple-Silicon` for M1 and newer, `Intel` for Intel.
 2. Open it and drag **CloudStream Desktop** into **Applications**.
 3. Open the app. If macOS blocks it, go to **System Settings → Privacy & Security** and click **Open Anyway**.
 

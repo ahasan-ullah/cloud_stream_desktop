@@ -1,6 +1,7 @@
 name: Build
 
-# Builds the installers for every platform. Each run keeps them as artifacts on its summary page.
+# Builds the installers for every platform. Each run keeps them as artifacts on its summary page,
+# and a version tag also publishes them as a GitHub release.
 on:
   push:
     branches: [main]
@@ -123,3 +124,38 @@ jobs:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.files }}
           if-no-files-found: error
+
+  # Runs only after every platform has passed, so a release never ships with a download missing.
+  release:
+    name: Publish release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+
+      # GitHub turns spaces in file names into dots, so give them names the notes can link to.
+      - name: Name the files and fill in the notes
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          name="files/CloudStream-Desktop-$version"
+          mkdir files
+          mv artifacts/cloudstream-desktop-windows-x64/*.exe "$name-Windows-x64-Setup.exe"
+          mv artifacts/cloudstream-desktop-windows-x64/*.msi "$name-Windows-x64.msi"
+          mv artifacts/cloudstream-desktop-macos-apple-silicon/*.dmg "$name-macOS-Apple-Silicon.dmg"
+          mv artifacts/cloudstream-desktop-macos-intel/*.dmg "$name-macOS-Intel.dmg"
+          mv artifacts/cloudstream-desktop-linux-x64/*.deb "$name-Linux-x64.deb"
+          mv artifacts/cloudstream-desktop-linux-x64/*.rpm "$name-Linux-x64.rpm"
+          sed "s/{{version}}/$version/g" .github/release-notes.md > notes.md
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" files/* --verify-tag --title "CloudStream Desktop $GITHUB_REF_NAME" --notes-file notes.md
