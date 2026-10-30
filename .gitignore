@@ -1,0 +1,18 @@
+# Engine
+engine/.gradle/
+engine/build/
+engine/.kotlin/
+engine/bin/
+
+# App
+app/node_modules/
+app/dist/
+app/src-tauri/target/
+app/src-tauri/gen/
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
