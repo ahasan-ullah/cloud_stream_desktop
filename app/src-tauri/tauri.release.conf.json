@@ -1,0 +1,9 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "resources": {
+      "../../engine/build/libs/engine.jar": "engine/engine.jar",
+      "../../engine/build/jre/": "jre/"
+    }
+  }
+}
