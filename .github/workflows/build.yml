@@ -108,9 +108,9 @@ jobs:
           [ -f build.log ] || exit 0
           echo "::error title=Build failed::$(tail -n 40 build.log | awk '{ printf "%s%%0A", $0 }')"
 
-      - name: Check the packaged engine starts
+      - name: Check the installed app starts its engine
         shell: bash
-        run: bash .github/scripts/check-engine.sh
+        run: bash .github/scripts/check-app.sh
 
       - name: List built files
         shell: bash

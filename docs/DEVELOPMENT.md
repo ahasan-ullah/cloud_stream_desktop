@@ -136,7 +136,7 @@ AppImage is turned off in `tauri.conf.json` because `linuxdeploy` fails when it 
 
 ### GitHub Actions
 
-[build.yml](../.github/workflows/build.yml) builds Windows, macOS (Apple Silicon and Intel) and Linux on every push to `main` and every `v*` tag, and you can start it from the Actions tab. Each build also starts the packaged engine with its bundled Java runtime ([check-engine.sh](../.github/scripts/check-engine.sh)) to catch a broken package. The installers are attached to the run as artifacts.
+[build.yml](../.github/workflows/build.yml) builds Windows, macOS (Apple Silicon and Intel) and Linux on every push to `main` and every `v*` tag, and you can start it from the Actions tab. Each build also installs the app, opens it and checks that it starts its engine ([check-app.sh](../.github/scripts/check-app.sh)) to catch a broken package. The installers are attached to the run as artifacts.
 
 ### Publishing a release
 
