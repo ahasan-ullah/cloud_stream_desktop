@@ -88,7 +88,15 @@ jobs:
       - name: Build installers
         working-directory: app
         shell: bash
-        run: npm run tauri build -- --config src-tauri/tauri.release.conf.json 2>&1 | tee build.log
+        run: |
+          # macOS runners sometimes keep the disk image busy while making the .dmg, so try again.
+          for attempt in 1 2 3; do
+            npm run tauri build -- --config src-tauri/tauri.release.conf.json 2>&1 | tee build.log && exit 0
+            [ "$RUNNER_OS" = macOS ] || exit 1
+            hdiutil detach "/Volumes/CloudStream Desktop" -force || true
+            sleep 30
+          done
+          exit 1
 
       # Puts the end of the log on the run's summary page, where it can be read without opening the job.
       - name: Show why the build failed
