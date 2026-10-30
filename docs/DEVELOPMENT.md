@@ -130,7 +130,9 @@ npm install
 npm run tauri build -- --config src-tauri/tauri.release.conf.json
 ```
 
-The release config bundles `engine.jar` and `jre/` as resources, so users don't need Java installed. Tauri produces MSI and NSIS installers on Windows, a `.app` and `.dmg` on macOS, and `.deb`, `.rpm` and `.AppImage` packages on Linux, all under `target/release/bundle/`. Build each platform on that OS, because the Java runtime is platform-specific.
+The release config bundles `engine.jar` and `jre/` as resources, so users don't need Java installed. Tauri produces MSI and NSIS installers on Windows, a `.app` and `.dmg` on macOS, and `.deb` and `.rpm` packages on Linux, all under `target/release/bundle/`. Build each platform on that OS, because the Java runtime is platform-specific.
+
+AppImage is turned off in `tauri.conf.json` because `linuxdeploy` fails when it bundles this app.
 
 ### GitHub Actions
 

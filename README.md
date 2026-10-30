@@ -151,13 +151,10 @@ Download the file for your system, then run the matching command from the folder
 
 ```bash
 # Ubuntu, Debian, Linux Mint
-sudo apt install ./*.deb
+sudo apt install ./CloudStream*.deb
 
 # Fedora, RHEL
-sudo dnf install ./*.rpm
-
-# Any distribution, no install needed
-chmod +x *.AppImage && ./*.AppImage
+sudo dnf install ./CloudStream*.rpm
 ```
 
 If videos don't play, install the video codecs. On Ubuntu and Debian:
