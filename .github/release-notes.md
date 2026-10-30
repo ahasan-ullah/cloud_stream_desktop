@@ -4,7 +4,10 @@
 
 <h3 align="center">Your CloudStream extensions, now on your computer.</h3>
 
-<p align="center">The first release of CloudStream Desktop for Windows, macOS and Linux.<br>Java is built in, so you don't need to install it.</p>
+<p align="center">CloudStream Desktop for Windows, macOS and Linux.<br>Java is built in, so you don't need to install it.</p>
+
+> [!IMPORTANT]
+> **This version fixes the "CloudStream engine unavailable" error** that stopped v0.1.1 from working on Windows. If you installed v0.1.1, install this version over it. Your repositories and extensions are kept.
 
 ## Download
 
