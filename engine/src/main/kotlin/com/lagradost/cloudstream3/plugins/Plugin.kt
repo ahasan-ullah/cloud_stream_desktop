@@ -15,4 +15,9 @@ abstract class Plugin : BasePlugin() {
     open fun load(context: Context) {
         load()
     }
+
+    companion object {
+        @JvmField
+        var `$stable`: Int = 0
+    }
 }
