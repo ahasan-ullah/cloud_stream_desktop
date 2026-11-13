@@ -25,6 +25,11 @@ dependencies {
     // .cs3 plugins ship Android DEX bytecode; convert it to JVM classes on install.
     implementation("de.femtopedia.dex2jar:dex-translator:2.4.28")
 
+    // ASM is a transitive dep of dex2jar; declare it explicitly so we can use it
+    // directly in ComposeAwareClassLoader to inject missing Compose $stable fields.
+    implementation("org.ow2.asm:asm:9.8")
+    implementation("org.ow2.asm:asm-commons:9.8")
+
     implementation("org.slf4j:slf4j-simple:2.0.17")
 }
 
