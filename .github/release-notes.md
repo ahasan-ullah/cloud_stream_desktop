@@ -7,7 +7,7 @@
 <p align="center">CloudStream Desktop for Windows, macOS and Linux.<br>Java is built in, so you don't need to install it.</p>
 
 > [!IMPORTANT]
-> **This version fixes the "CloudStream engine unavailable" error** that stopped v0.1.1 from working on Windows. If you installed v0.1.1, install this version over it. Your repositories and extensions are kept.
+> **Version {{version}} fixes plugin loading failures (`$stable`, `DialogFragment`, `DataStore`, `parseJson`) and macOS startup and permission issues.** If you have older versions installed, simply install this update over them. All your repositories, extensions, and settings are preserved.
 
 ## Download
 

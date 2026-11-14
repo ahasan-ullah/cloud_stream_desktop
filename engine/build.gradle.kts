@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "com.cloudstream.engine"
-version = "0.1.0"
+version = "0.1.3"
 
 val cloudstreamVersion: String by project
 val ktorVersion = "3.5.0"
