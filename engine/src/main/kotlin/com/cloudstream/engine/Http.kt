@@ -50,7 +50,20 @@ class Http {
     }
 
     companion object {
-        const val USER_AGENT =
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
+        /**
+         * Use a platform-appropriate user-agent so servers do not reject non-Windows
+         * requests when the engine runs on macOS or Linux.
+         */
+        val USER_AGENT: String = run {
+            val os = System.getProperty("os.name", "").lowercase()
+            when {
+                os.contains("mac") ->
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
+                os.contains("linux") ->
+                    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
+                else ->
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
+            }
+        }
     }
 }
