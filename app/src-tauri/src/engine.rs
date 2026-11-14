@@ -23,10 +23,11 @@ const READY_PREFIX: &str = "ENGINE_READY port=";
 
 /// Small-footprint JVM: serial GC that gives memory back (the engine also forces a GC when idle),
 /// C1-only JIT with a small code cache, capped heap/metaspace, and no perf-data mapping.
+/// 512 MB max heap provides enough headroom for dex2jar converting large Android plugins.
 const JVM_ARGS: [&str; 11] = [
     "-XX:+UseSerialGC",
     "-Xms16m",
-    "-Xmx256m",
+    "-Xmx512m",
     "-XX:MinHeapFreeRatio=10",
     "-XX:MaxHeapFreeRatio=25",
     "-XX:MaxMetaspaceSize=192m",
@@ -134,6 +135,26 @@ impl Engine {
             .kill_on_drop(true);
         #[cfg(windows)]
         cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+        // On macOS, SIP strips DYLD_LIBRARY_PATH from child processes of signed apps.
+        // The jlink-produced JRE ships libjli.dylib inside its lib/ directory; we set
+        // JAVA_HOME so that the `java` launcher can resolve it via its own rpath logic.
+        #[cfg(target_os = "macos")]
+        if let Some(java_home) = java.parent().and_then(|p| p.parent()) {
+            cmd.env("JAVA_HOME", java_home);
+        }
+
+        // Ensure the Java binary has executable permissions on Unix systems (e.g. inside macOS .app bundles).
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Ok(metadata) = std::fs::metadata(&java) {
+                let mut perms = metadata.permissions();
+                if perms.mode() & 0o111 == 0 {
+                    perms.set_mode(perms.mode() | 0o755);
+                    let _ = std::fs::set_permissions(&java, perms);
+                }
+            }
+        }
 
         let mut child = cmd
             .spawn()
@@ -284,19 +305,59 @@ fn plain_path(path: &Path) -> PathBuf {
     dunce::simplified(path).to_path_buf()
 }
 
-/// Bundled JRE first, then JAVA_HOME, then whatever `java` is on PATH.
+/// Bundled JRE first, then JAVA_HOME, then macOS system discovery, then whatever `java` is on PATH.
 fn find_java(app: &AppHandle) -> PathBuf {
     let java = exe("java");
     if let Ok(res) = app.path().resource_dir() {
+        // Windows / Linux: resources/ is a sibling directory of the executable.
+        // macOS: resources/ is Contents/Resources inside the .app bundle.
+        // Both cases: our bundleJre task writes the JRE into resources/jre/.
         let bundled = plain_path(&res).join("jre").join("bin").join(&java);
         if bundled.exists() {
             return bundled;
+        }
+        // macOS alternative: Tauri 2 may resolve resources to Contents/Resources
+        // but the .app layout sometimes differs; also check one level up.
+        #[cfg(target_os = "macos")]
+        {
+            let alt = plain_path(&res).parent()
+                .map(|p| p.join("Resources").join("jre").join("bin").join(&java));
+            if let Some(p) = alt.filter(|p| p.exists()) {
+                return p;
+            }
         }
     }
     if let Some(home) = std::env::var_os("JAVA_HOME") {
         let p = PathBuf::from(home).join("bin").join(&java);
         if p.exists() {
             return p;
+        }
+    }
+    #[cfg(target_os = "macos")]
+    {
+        // Try macOS standard java_home tool to locate any active JDK.
+        if let Ok(output) = std::process::Command::new("/usr/libexec/java_home").output() {
+            if output.status.success() {
+                let path_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if !path_str.is_empty() {
+                    let candidate = PathBuf::from(path_str).join("bin").join("java");
+                    if candidate.exists() {
+                        return candidate;
+                    }
+                }
+            }
+        }
+        // Check standard Homebrew and system locations on macOS.
+        for path in [
+            "/opt/homebrew/opt/openjdk/bin/java",
+            "/opt/homebrew/bin/java",
+            "/usr/local/opt/openjdk/bin/java",
+            "/usr/local/bin/java",
+        ] {
+            let candidate = PathBuf::from(path);
+            if candidate.exists() {
+                return candidate;
+            }
         }
     }
     PathBuf::from(java)
@@ -310,6 +371,14 @@ fn find_jar(app: &AppHandle) -> Option<PathBuf> {
         let bundled = plain_path(&res).join("engine").join("engine.jar");
         if bundled.exists() {
             return Some(bundled);
+        }
+        #[cfg(target_os = "macos")]
+        {
+            let alt = plain_path(&res).parent()
+                .map(|p| p.join("Resources").join("engine").join("engine.jar"));
+            if let Some(p) = alt.filter(|p| p.exists()) {
+                return Some(p);
+            }
         }
     }
     if cfg!(debug_assertions) {
