@@ -9,6 +9,9 @@ import com.lagradost.cloudstream3.plugins.Plugin
 import com.lagradost.cloudstream3.utils.extractorApis
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import org.objectweb.asm.ClassReader
+import org.objectweb.asm.ClassWriter
+import org.objectweb.asm.Opcodes
 import org.slf4j.LoggerFactory
 import java.io.File
 import java.net.URLClassLoader
@@ -112,10 +115,20 @@ class PluginHost(
                 cachedJar(id).also { out ->
                     if (!out.exists() || out.lastModified() < file.lastModified()) {
                         deleteCachedJars(id)
-                        Dex2jar.from(zip.getInputStream(dex).readBytes())
-                            // Keep JVM names such as Kotlin's `constructor-impl` intact; renaming them breaks linking.
-                            .dontSanitizeNames(true)
-                            .to(out.toPath())
+                        val tmp = File(cacheDir, "$id.d2j$CONVERTER_VERSION.jar.tmp")
+                        tmp.delete()
+                        try {
+                            Dex2jar.from(zip.getInputStream(dex).readBytes())
+                                // Keep JVM names such as Kotlin's `constructor-impl` intact; renaming them breaks linking.
+                                .dontSanitizeNames(true)
+                                .to(tmp.toPath())
+                            if (!tmp.renameTo(out)) {
+                                tmp.copyTo(out, overwrite = true)
+                                tmp.delete()
+                            }
+                        } finally {
+                            tmp.delete()
+                        }
                     }
                 }
             }
@@ -123,7 +136,7 @@ class PluginHost(
         }
         val className = manifest.pluginClassName ?: error("manifest.json has no pluginClassName")
 
-        val loader = URLClassLoader(arrayOf(jar.toURI().toURL()), javaClass.classLoader)
+        val loader = ComposeAwareClassLoader(arrayOf(jar.toURI().toURL()), javaClass.classLoader)
         try {
             val instance = loader.loadClass(className).getDeclaredConstructor().newInstance() as BasePlugin
             instance.filename = file.absolutePath
@@ -168,6 +181,109 @@ class PluginHost(
 
     companion object {
         private val PLUGIN_EXTENSIONS = setOf("cs3", "jar")
-        private const val CONVERTER_VERSION = 2
+        private const val CONVERTER_VERSION = 3
+    }
+}
+
+/**
+ * URLClassLoader that transparently patches missing Compose stability fields and references.
+ *
+ * The Kotlin Compose compiler inserts `public static final int $stable = 0;` into every
+ * class that carries a @Composable or @Stable annotation. It also compiles bytecode that
+ * reads `$stable` from superclasses (e.g. `Plugin.$stable`). When converted to JVM bytecode,
+ * those references survive, but the Compose runtime itself is not on the engine's classpath,
+ * causing `NoSuchFieldError: $stable`.
+ *
+ * This loader intercepts every class load from the plugin jar and:
+ *  1. Replaces any `GETSTATIC *.$stable : I` instruction with `ICONST_0` so reads never fail.
+ *  2. Declares `public static final int $stable = 0;` on classes that reference it if missing.
+ */
+private class ComposeAwareClassLoader(urls: Array<java.net.URL>, parent: ClassLoader?) :
+    URLClassLoader(urls, parent) {
+
+    private val patchCache = ConcurrentHashMap<String, ByteArray>()
+
+    override fun findClass(name: String): Class<*> {
+        synchronized(getClassLoadingLock(name)) {
+            val cached = patchCache[name]
+            if (cached != null) return defineClass(name, cached, 0, cached.size)
+            val patched = readAndPatch(name)
+                ?: return super.findClass(name)
+            patchCache[name] = patched
+            return defineClass(name, patched, 0, patched.size)
+        }
+    }
+
+    private fun readAndPatch(name: String): ByteArray? {
+        val path = name.replace('.', '/') + ".class"
+        val raw = findResource(path)?.openStream()?.use { it.readBytes() }
+            ?: getResourceAsStream(path)?.use { it.readBytes() }
+            ?: return null
+        return injectStableFieldIfNeeded(raw)
+    }
+
+    companion object {
+        private const val STABLE_FIELD = "\$stable"
+        private const val FIELD_DESC = "I"
+
+        fun injectStableFieldIfNeeded(raw: ByteArray): ByteArray {
+            if (!referencesStable(raw)) return raw
+
+            val cr = ClassReader(raw)
+            val hasField = hasStableField(cr)
+            val cw = ClassWriter(cr, 0)
+            val cv = object : org.objectweb.asm.ClassVisitor(Opcodes.ASM9, cw) {
+                private var fieldInjected = false
+
+                override fun visitMethod(
+                    access: Int, name: String?, descriptor: String?, signature: String?, exceptions: Array<out String>?
+                ): org.objectweb.asm.MethodVisitor? {
+                    val mv = super.visitMethod(access, name, descriptor, signature, exceptions) ?: return null
+                    return object : org.objectweb.asm.MethodVisitor(Opcodes.ASM9, mv) {
+                        override fun visitFieldInsn(opcode: Int, owner: String?, fieldName: String?, fieldDesc: String?) {
+                            if (opcode == Opcodes.GETSTATIC && fieldName == STABLE_FIELD && fieldDesc == FIELD_DESC) {
+                                // Pushes 0 instead of reading the static field from another class.
+                                super.visitInsn(Opcodes.ICONST_0)
+                            } else {
+                                super.visitFieldInsn(opcode, owner, fieldName, fieldDesc)
+                            }
+                        }
+                    }
+                }
+
+                override fun visitEnd() {
+                    if (!hasField && !fieldInjected) {
+                        fieldInjected = true
+                        visitField(
+                            Opcodes.ACC_PUBLIC or Opcodes.ACC_STATIC or Opcodes.ACC_FINAL,
+                            STABLE_FIELD, FIELD_DESC, null, 0
+                        )?.visitEnd()
+                    }
+                    super.visitEnd()
+                }
+            }
+            cr.accept(cv, 0)
+            return cw.toByteArray()
+        }
+
+        private fun hasStableField(cr: ClassReader): Boolean {
+            var found = false
+            cr.accept(object : org.objectweb.asm.ClassVisitor(Opcodes.ASM9) {
+                override fun visitField(access: Int, name: String, desc: String, sig: String?, value: Any?): org.objectweb.asm.FieldVisitor? {
+                    if (name == STABLE_FIELD) found = true
+                    return null
+                }
+            }, ClassReader.SKIP_CODE or ClassReader.SKIP_DEBUG or ClassReader.SKIP_FRAMES)
+            return found
+        }
+
+        private fun referencesStable(raw: ByteArray): Boolean {
+            val needle = STABLE_FIELD.toByteArray(Charsets.UTF_8)
+            outer@ for (i in 0..(raw.size - needle.size)) {
+                for (j in needle.indices) if (raw[i + j] != needle[j]) continue@outer
+                return true
+            }
+            return false
+        }
     }
 }
