@@ -53,27 +53,3 @@ object DataStoreHelper {
     fun removeKey(path: String) = DataStore.removeKey(path)
     fun removeKey(tag: String, key: String) = DataStore.removeKey(tag, key)
 }
-
-object AppUtils {
-    var json: Json = Json {
-        ignoreUnknownKeys = true
-        isLenient = true
-        encodeDefaults = true
-        coerceInputValues = true
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    fun <T : Any> parseJson(text: String, kClass: kotlin.reflect.KClass<T>): T {
-        val serializer = kotlinx.serialization.serializer(kClass.java)
-        return json.decodeFromString(serializer, text) as T
-    }
-
-    fun <T : Any> tryParseJson(text: String, kClass: kotlin.reflect.KClass<T>): T? =
-        runCatching { parseJson(text, kClass) }.getOrNull()
-
-    inline fun <reified T : Any> parseJson(text: String): T =
-        parseJson(text, T::class)
-
-    inline fun <reified T : Any> tryParseJson(text: String): T? =
-        tryParseJson(text, T::class)
-}
