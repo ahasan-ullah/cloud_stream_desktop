@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "com.cloudstream.engine"
-version = "0.1.3"
+version = "0.1.4"
 
 val cloudstreamVersion: String by project
 val ktorVersion = "3.5.0"
@@ -24,6 +24,9 @@ dependencies {
 
     // .cs3 plugins ship Android DEX bytecode; convert it to JVM classes on install.
     implementation("de.femtopedia.dex2jar:dex-translator:2.4.28")
+
+    // Provides Dispatchers.Main for plugins on desktop JVM
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.11.0")
 
     // ASM is a transitive dep of dex2jar; declare it explicitly so we can use it
     // directly in ComposeAwareClassLoader to inject missing Compose $stable fields.
