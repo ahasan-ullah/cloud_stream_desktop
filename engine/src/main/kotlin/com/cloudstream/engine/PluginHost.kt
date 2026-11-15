@@ -81,14 +81,16 @@ class PluginHost(
         val loaded = plugins[id] ?: throw ApiError.notFound("Plugin $id is not installed")
         unload(id)
         loaded.file.delete()
-        deleteCachedJars(id)
+        cleanupOldCachedJars(id)
     }
 
-    /** Versioned so jars from an older converter setup are regenerated. */
-    private fun cachedJar(id: String) = File(cacheDir, "$id.d2j$CONVERTER_VERSION.jar")
+    /** Versioned and timestamped so jars are regenerated cleanly without Windows file lock collisions. */
+    private fun cachedJar(id: String, sourceFile: File) =
+        File(cacheDir, "$id.d2j$CONVERTER_VERSION-${sourceFile.lastModified()}.jar")
 
-    private fun deleteCachedJars(id: String) {
-        cacheDir.listFiles { f -> f.name == "$id.jar" || f.name.startsWith("$id.d2j") }?.forEach { it.delete() }
+    private fun cleanupOldCachedJars(id: String, keepFile: File? = null) {
+        cacheDir.listFiles { f -> (f.name == "$id.jar" || f.name.startsWith("$id.d2j")) && f != keepFile }
+            ?.forEach { runCatching { it.delete() } }
     }
 
     private fun load(file: File) {
@@ -112,15 +114,16 @@ class PluginHost(
             val jar = if (dex == null) {
                 file // Already JVM bytecode.
             } else {
-                cachedJar(id).also { out ->
-                    if (!out.exists() || out.lastModified() < file.lastModified()) {
-                        deleteCachedJars(id)
-                        val tmp = File(cacheDir, "$id.d2j$CONVERTER_VERSION.jar.tmp")
+                cachedJar(id, file).also { out ->
+                    if (!out.exists() || out.length() == 0L) {
+                        cleanupOldCachedJars(id, out)
+                        val tmp = File(cacheDir, "${out.name}.tmp")
                         tmp.delete()
                         try {
                             Dex2jar.from(zip.getInputStream(dex).readBytes())
                                 // Keep JVM names such as Kotlin's `constructor-impl` intact; renaming them breaks linking.
                                 .dontSanitizeNames(true)
+                                .skipDebug(true)
                                 .to(tmp.toPath())
                             if (!tmp.renameTo(out)) {
                                 tmp.copyTo(out, overwrite = true)
