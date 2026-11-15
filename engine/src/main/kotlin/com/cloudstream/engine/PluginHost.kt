@@ -96,11 +96,19 @@ class PluginHost(
     private fun load(file: File) {
         val id = file.nameWithoutExtension
         plugins[id] = try {
-            loadUnchecked(id, file)
+            val executor = java.util.concurrent.Executors.newSingleThreadExecutor { r ->
+                Thread(r, "plugin-loader-$id").apply { isDaemon = true }
+            }
+            try {
+                executor.submit(java.util.concurrent.Callable { loadUnchecked(id, file) })
+                    .get(15, java.util.concurrent.TimeUnit.SECONDS)
+            } finally {
+                executor.shutdownNow()
+            }
         } catch (t: Throwable) {
-            // LinkageErrors are expected for plugins that touch Android-only APIs.
-            log.warn("Failed to load plugin {}: {}", file.name, t.toString())
-            Loaded(id, file, null, null, null, t.toString())
+            val cause = if (t is java.util.concurrent.ExecutionException) t.cause ?: t else t
+            log.warn("Failed to load plugin {}: {}", file.name, cause.toString())
+            Loaded(id, file, null, null, null, cause.toString())
         }
     }
 

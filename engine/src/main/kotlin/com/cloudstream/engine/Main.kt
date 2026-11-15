@@ -30,7 +30,6 @@ fun main() {
     val http = Http()
     val plugins = PluginHost(File(dataDir, "plugins"), File(dataDir, "cache/plugins"), http)
     val repos = RepoStore(File(dataDir, "repos.json"), http)
-    plugins.loadAll()
 
     val server = embeddedServer(CIO, host = "127.0.0.1", port = port) {
         engineModule(plugins, repos, token)
@@ -39,8 +38,12 @@ fun main() {
     val boundPort = runBlocking { server.engine.resolvedConnectors().first().port }
     println("ENGINE_READY port=$boundPort")
     System.out.flush()
-    IdleTrimmer.touch() // Plugin loading allocated a lot; trim once startup settles.
-    IdleTrimmer.start()
+
+    thread(isDaemon = true, name = "plugin-loader") {
+        plugins.loadAll()
+        IdleTrimmer.touch() // Plugin loading allocated a lot; trim once startup settles.
+        IdleTrimmer.start()
+    }
 
     if (System.getenv("CS_ENGINE_WATCH_STDIN") == "1") {
         thread(isDaemon = true, name = "stdin-watch") {
