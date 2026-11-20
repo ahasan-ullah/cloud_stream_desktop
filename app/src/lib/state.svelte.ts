@@ -94,6 +94,7 @@ function applyStatus(status: EngineStatus) {
 
 export async function initEngine() {
   await listen<EngineStatus>("engine-status", (e) => applyStatus(e.payload));
+  await listen("engine-plugins-loaded", () => refreshProviders());
   applyStatus(await engine.status());
 }
 

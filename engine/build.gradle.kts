@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "com.cloudstream.engine"
-version = "0.1.4"
+version = "0.1.5"
 
 val cloudstreamVersion: String by project
 val ktorVersion = "3.5.0"
@@ -27,6 +27,10 @@ dependencies {
 
     // Provides Dispatchers.Main for plugins on desktop JVM
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.11.0")
+
+    // Jackson dependencies for JSON handling and safe Kotlin reflection introspection
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.18.2")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.18.2")
 
     // ASM is a transitive dep of dex2jar; declare it explicitly so we can use it
     // directly in ComposeAwareClassLoader to inject missing Compose $stable fields.

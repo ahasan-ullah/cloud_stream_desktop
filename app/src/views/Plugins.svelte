@@ -4,7 +4,14 @@
   import Icon from "../components/Icon.svelte";
   import { errorMessage, type Repo, type RepoPlugin } from "../lib/api";
   import { lazySrc } from "../lib/images";
-  import { ext, installPlugin, loadRepoPlugins, refreshInstalled, uninstallPlugin } from "../lib/extensions.svelte";
+  import {
+    ext,
+    installPlugin,
+    loadRepoPlugins,
+    refreshInstalled,
+    refreshRepos,
+    uninstallPlugin,
+  } from "../lib/extensions.svelte";
   import { router } from "../lib/router.svelte";
   import { showToast } from "../lib/state.svelte";
   import { TV_TYPE_CHIPS, flagFor, typesFor } from "../lib/tvtypes";
@@ -56,6 +63,9 @@
     try {
       const result = await installPlugin(p);
       showToast(result.error ? `${p.name}: ${result.error}` : "Plugin Loaded");
+      if (p.internalName === "MegaProvider") {
+        setTimeout(() => void refreshRepos(), 2000);
+      }
     } catch (e) {
       showToast(errorMessage(e));
     } finally {

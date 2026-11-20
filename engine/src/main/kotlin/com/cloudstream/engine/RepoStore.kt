@@ -49,11 +49,21 @@ class RepoStore(private val file: File, private val http: Http) {
     }
 
     /**
-     * Same inputs the Android app accepts (RepositoryManager.parseRepoUrl): a URL, a
-     * `cloudstreamrepo://` / `https://cs.repo/` link, or a cutt.ly (`code`) / py.md (`!code`) shortcode.
+     * Resolves inputs like the Android app does (RepositoryManager.parseRepoUrl):
+     * standard repository shortcodes (megarepo, hexated, phisher), deep links, or URLs.
      */
-    private fun resolveRepoUrl(input: String): String? {
+    fun resolveRepoUrl(input: String): String? {
         val text = input.trim()
+        val known = when (text.lowercase()) {
+            "megarepo", "3737" -> "https://raw.githubusercontent.com/self-similarity/MegaRepo/builds/repo.json"
+            "hexated" -> "https://raw.githubusercontent.com/Hexated/cloudstream-extensions-hexated/builds/repo.json"
+            "phisher" -> "https://raw.githubusercontent.com/phisher98/cloudstream-extensions-phisher/refs/heads/builds/repo.json"
+            "likdev" -> "https://raw.githubusercontent.com/recloudstream/cloudstream-extensions/builds/repo.json"
+            "stormunblessed" -> "https://raw.githubusercontent.com/Stormunblessed/stormunblessed-cloudstream/builds/repo.json"
+            else -> null
+        }
+        if (known != null) return known
+
         val deepLink = Regex("^(cloudstreamrepo://|https://cs\\.repo/\\??)")
         return when {
             deepLink.containsMatchIn(text) -> text.replace(deepLink, "").let {
@@ -69,7 +79,7 @@ class RepoStore(private val file: File, private val http: Http) {
         }
     }
 
-    private fun fetchManifest(url: String): RepoManifest = try {
+    fun fetchManifest(url: String): RepoManifest = try {
         json.decodeFromString<RepoManifest>(http.getText(url))
     } catch (e: ApiError) {
         throw e

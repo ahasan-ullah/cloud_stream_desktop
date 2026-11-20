@@ -1,6 +1,11 @@
 package com.cloudstream.engine
 
 import android.content.DesktopContext
+import com.fasterxml.jackson.databind.introspect.AnnotatedMember
+import com.fasterxml.jackson.databind.introspect.AnnotationIntrospectorPair
+import com.lagradost.cloudstream3.APIHolder
+import com.lagradost.cloudstream3.mapper
+import com.lagradost.cloudstream3.plugins.RepositoryManager
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.embeddedServer
 import kotlinx.coroutines.runBlocking
@@ -30,6 +35,27 @@ fun main() {
     val http = Http()
     val plugins = PluginHost(File(dataDir, "plugins"), File(dataDir, "cache/plugins"), http)
     val repos = RepoStore(File(dataDir, "repos.json"), http)
+    RepositoryManager.repoStore = repos
+
+    // Wrap Jackson's AnnotationIntrospector so Kotlin reflection errors on local/synthetic classes
+    // (such as in MegaPlugin) are swallowed rather than crashing JSON deserialization.
+    try {
+        val original = mapper.serializationConfig.annotationIntrospector
+        if (original != null) {
+            val safe = object : AnnotationIntrospectorPair(original, null) {
+                override fun hasRequiredMarker(m: AnnotatedMember): Boolean? {
+                    return try {
+                        _primary?.hasRequiredMarker(m)
+                    } catch (t: Throwable) {
+                        null
+                    }
+                }
+            }
+            mapper.setAnnotationIntrospector(safe)
+        }
+    } catch (e: Throwable) {
+        // Safe fallback if mapper internals change
+    }
 
     val server = embeddedServer(CIO, host = "127.0.0.1", port = port) {
         engineModule(plugins, repos, token)
@@ -41,6 +67,8 @@ fun main() {
 
     thread(isDaemon = true, name = "plugin-loader") {
         plugins.loadAll()
+        println("ENGINE_PLUGINS_LOADED count=${APIHolder.allProviders.size}")
+        System.out.flush()
         IdleTrimmer.touch() // Plugin loading allocated a lot; trim once startup settles.
         IdleTrimmer.start()
     }

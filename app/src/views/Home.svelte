@@ -8,7 +8,7 @@
 </script>
 
 <script lang="ts">
-  import { untrack } from "svelte";
+  import { onMount, untrack } from "svelte";
   import Dialog from "../components/Dialog.svelte";
   import Icon from "../components/Icon.svelte";
   import PosterCard from "../components/PosterCard.svelte";
@@ -28,9 +28,23 @@
     type WatchStatus,
   } from "../lib/library.svelte";
   import { router } from "../lib/router.svelte";
-  import { cardWidth, engineState, settings } from "../lib/state.svelte";
+  import { cardWidth, engineState, refreshProviders, settings } from "../lib/state.svelte";
   import { uniqueBy } from "../lib/unique";
   import { flagFor, qualityLabel, typeLabel } from "../lib/tvtypes";
+
+  onMount(() => {
+    if (engineState.status.state === "ready" && !engineState.providers.length) {
+      void refreshProviders();
+      const interval = setInterval(() => {
+        if (engineState.providers.length || engineState.status.state !== "ready") {
+          clearInterval(interval);
+        } else {
+          void refreshProviders();
+        }
+      }, 1500);
+      return () => clearInterval(interval);
+    }
+  });
 
   /** Categories scraped per request; more are fetched as the user scrolls down. */
   const BATCH = 4;
@@ -321,6 +335,9 @@
       <div class="center-fill">
         <p class="error-text">{error}</p>
         <button class="btn btn-white" onclick={reload}><Icon name="autorenew" size={20} /> Retry connection…</button>
+        {#if homeProviders.length > 1}
+          <button class="btn btn-white" onclick={() => (sourceDialog = true)}><Icon name="filter" size={20} /> Switch Provider</button>
+        {/if}
         {#if providerInfo}
           <button class="btn btn-black" onclick={() => openUrl(providerInfo.mainUrl)}><Icon name="public" size={20} /> Open In Browser</button>
         {/if}
@@ -329,6 +346,9 @@
       <div class="center-fill">
         <p class={home.errors.length ? "error-text" : ""}>{home.errors[0] ?? `${provider} returned no data`}</p>
         <button class="btn btn-white" onclick={reload}><Icon name="autorenew" size={20} /> Retry connection…</button>
+        {#if homeProviders.length > 1}
+          <button class="btn btn-white" onclick={() => (sourceDialog = true)}><Icon name="filter" size={20} /> Switch Provider</button>
+        {/if}
         {#if providerInfo}
           <button class="btn btn-black" onclick={() => openUrl(providerInfo.mainUrl)}><Icon name="public" size={20} /> Open In Browser</button>
         {/if}

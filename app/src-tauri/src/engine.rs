@@ -27,10 +27,10 @@ const READY_PREFIX: &str = "ENGINE_READY port=";
 const JVM_ARGS: [&str; 11] = [
     "-XX:+UseSerialGC",
     "-Xms16m",
-    "-Xmx512m",
+    "-Xmx1024m",
     "-XX:MinHeapFreeRatio=10",
     "-XX:MaxHeapFreeRatio=25",
-    "-XX:MaxMetaspaceSize=192m",
+    "-XX:MaxMetaspaceSize=256m",
     "-XX:TieredStopAtLevel=1",
     "-XX:ReservedCodeCacheSize=48m",
     "-Xss1m",
@@ -188,6 +188,9 @@ impl Engine {
         tokio::spawn(async move {
             while let Some(line) = read_line(&mut lines).await {
                 log.write(&line);
+                if line.starts_with("ENGINE_PLUGINS_LOADED") {
+                    let _ = app.emit("engine-plugins-loaded", ());
+                }
                 println!("[engine] {line}");
             }
             let mut inner = this.inner.lock().await;

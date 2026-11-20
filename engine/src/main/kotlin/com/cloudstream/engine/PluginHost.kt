@@ -1,7 +1,10 @@
 package com.cloudstream.engine
 
 import android.content.DesktopContext
+import com.googlecode.d2j.Method
 import com.googlecode.d2j.dex.Dex2jar
+import com.googlecode.d2j.dex.DexExceptionHandler
+import com.googlecode.d2j.node.DexMethodNode
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.plugins.BasePlugin
@@ -11,6 +14,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.ClassWriter
+import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes
 import org.slf4j.LoggerFactory
 import java.io.File
@@ -101,7 +105,7 @@ class PluginHost(
             }
             try {
                 executor.submit(java.util.concurrent.Callable { loadUnchecked(id, file) })
-                    .get(15, java.util.concurrent.TimeUnit.SECONDS)
+                    .get(60, java.util.concurrent.TimeUnit.SECONDS)
             } finally {
                 executor.shutdownNow()
             }
@@ -132,6 +136,24 @@ class PluginHost(
                                 // Keep JVM names such as Kotlin's `constructor-impl` intact; renaming them breaks linking.
                                 .dontSanitizeNames(true)
                                 .skipDebug(true)
+                                .withExceptionHandler(object : DexExceptionHandler {
+                                    override fun handleFileException(e: Exception) {
+                                        log.warn("Dex2jar file exception in {}: {}", id, e.toString())
+                                    }
+                                    override fun handleMethodTranslateException(
+                                        method: Method,
+                                        methodNode: DexMethodNode?,
+                                        mv: MethodVisitor,
+                                        e: Exception
+                                    ) {
+                                        log.warn("Dex2jar: stubbed unconvertible method {}.{}: {}", method.owner, method.name, e.toString())
+                                        mv.visitTypeInsn(Opcodes.NEW, "java/lang/RuntimeException")
+                                        mv.visitInsn(Opcodes.DUP)
+                                        mv.visitLdcInsn("dex2jar failed to translate method: ${e.message}")
+                                        mv.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/RuntimeException", "<init>", "(Ljava/lang/String;)V", false)
+                                        mv.visitInsn(Opcodes.ATHROW)
+                                    }
+                                })
                                 .to(tmp.toPath())
                             if (!tmp.renameTo(out)) {
                                 tmp.copyTo(out, overwrite = true)
@@ -148,7 +170,9 @@ class PluginHost(
         val className = manifest.pluginClassName ?: error("manifest.json has no pluginClassName")
 
         val loader = ComposeAwareClassLoader(arrayOf(jar.toURI().toURL()), javaClass.classLoader)
+        val prevCl = Thread.currentThread().contextClassLoader
         try {
+            Thread.currentThread().contextClassLoader = loader
             val instance = loader.loadClass(className).getDeclaredConstructor().newInstance() as BasePlugin
             instance.filename = file.absolutePath
             if (instance is Plugin) instance.load(DesktopContext) else instance.load()
@@ -158,6 +182,8 @@ class PluginHost(
             removeProviders(file)
             loader.close()
             throw t
+        } finally {
+            Thread.currentThread().contextClassLoader = prevCl
         }
     }
 

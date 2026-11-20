@@ -134,8 +134,10 @@ fun Application.engineModule(plugins: PluginHost, repos: RepoStore, token: Strin
                                 // Plugins often list the same title twice; the UI keys rows by URL.
                                 SearchGroupDto(api.name, page?.items.orEmpty().map { it.toDto() }.distinctBy { it.url })
                             } catch (t: Throwable) {
-                                log.warn("{} search '{}' failed: {}", api.name, query, t.toString())
-                                SearchGroupDto(api.name, emptyList(), t.message ?: t.toString())
+                                if (t !is NotImplementedError) {
+                                    log.warn("{} search '{}' failed: {}", api.name, query, t.toString())
+                                }
+                                SearchGroupDto(api.name, emptyList(), if (t is NotImplementedError) null else (t.message ?: t.toString()))
                             }
                         }
                     }.awaitAll()
