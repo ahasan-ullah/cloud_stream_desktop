@@ -111,54 +111,63 @@
   {/if}
 
   <main>
-    {#if route.name !== "player"}
-      {#if status.state === "failed" || initError}
+    {#if route.name !== "player" && status.state === "starting"}
+      <div class="full-app-loader">
+        <div class="loader-box">
+          <div class="logo-wrapper">
+            <Logo size={72} />
+          </div>
+          <div class="spinner large"></div>
+          <h2>Starting CloudStream</h2>
+          <p class="loader-sub">Initializing desktop engine & extensions…</p>
+        </div>
+      </div>
+    {:else}
+      {#if route.name !== "player" && (status.state === "failed" || initError)}
         <div class="banner">
           <span>CloudStream engine unavailable: {initError || (status.state === "failed" ? status.message : "")}</span>
           <button class="btn btn-white" onclick={() => engine.restart()}>Retry connection…</button>
         </div>
-      {:else if status.state === "starting"}
-        <div class="banner subtle"><div class="spinner small"></div> Starting CloudStream engine…</div>
       {/if}
-    {/if}
 
-    <div class="view">
-      {#key route}
-        <!-- One failing screen (e.g. odd plugin data) shows an error instead of freezing the app. -->
-        <svelte:boundary onerror={(e) => console.error(e)}>
-          {#if route.name === "home"}
-            <Home />
-          {:else if route.name === "search"}
-            <Search initialQuery={route.query} />
-          {:else if route.name === "library"}
-            <Library />
-          {:else if route.name === "downloads"}
-            <Downloads />
-          {:else if route.name === "settings"}
-            <Settings />
-          {:else if route.name.startsWith("settings-")}
-            <SettingsPage page={route.name as SettingsPageName} />
-          {:else if route.name === "extensions"}
-            <Extensions />
-          {:else if route.name === "plugins"}
-            <Plugins repo={route.repo} />
-          {:else if route.name === "details"}
-            <Details provider={route.provider} url={route.url} title={route.title} autoplay={route.autoplay} />
-          {:else if route.name === "player"}
-            <Player />
-          {/if}
-          {#snippet failed(error, reset)}
-            <div class="center-fill crashed">
-              <p class="error-text">This screen ran into a problem: {errorMessage(error)}</p>
-              <button class="btn btn-white" onclick={reset}><Icon name="autorenew" size={20} /> Retry</button>
-              {#if router.canGoBack}
-                <button class="btn btn-black" onclick={() => router.back()}>Go Back</button>
-              {/if}
-            </div>
-          {/snippet}
-        </svelte:boundary>
-      {/key}
-    </div>
+      <div class="view">
+        {#key route}
+          <!-- One failing screen (e.g. odd plugin data) shows an error instead of freezing the app. -->
+          <svelte:boundary onerror={(e) => console.error(e)}>
+            {#if route.name === "home"}
+              <Home />
+            {:else if route.name === "search"}
+              <Search initialQuery={route.query} />
+            {:else if route.name === "library"}
+              <Library />
+            {:else if route.name === "downloads"}
+              <Downloads />
+            {:else if route.name === "settings"}
+              <Settings />
+            {:else if route.name.startsWith("settings-")}
+              <SettingsPage page={route.name as SettingsPageName} />
+            {:else if route.name === "extensions"}
+              <Extensions />
+            {:else if route.name === "plugins"}
+              <Plugins repo={route.repo} />
+            {:else if route.name === "details"}
+              <Details provider={route.provider} url={route.url} title={route.title} autoplay={route.autoplay} />
+            {:else if route.name === "player"}
+              <Player />
+            {/if}
+            {#snippet failed(error, reset)}
+              <div class="center-fill crashed">
+                <p class="error-text">This screen ran into a problem: {errorMessage(error)}</p>
+                <button class="btn btn-white" onclick={reset}><Icon name="autorenew" size={20} /> Retry</button>
+                {#if router.canGoBack}
+                  <button class="btn btn-black" onclick={() => router.back()}>Go Back</button>
+                {/if}
+              </div>
+            {/snippet}
+          </svelte:boundary>
+        {/key}
+      </div>
+    {/if}
   </main>
 
   {#if toast.text}
@@ -251,6 +260,54 @@
     background: var(--bg);
   }
 
+  .full-app-loader {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 400px;
+    background: var(--bg);
+  }
+
+  .loader-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    text-align: center;
+    max-width: 380px;
+    padding: 32px;
+  }
+
+  .logo-wrapper {
+    margin-bottom: 8px;
+    animation: pulse 2.2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 0.92;
+    }
+    50% {
+      transform: scale(1.08);
+      opacity: 1;
+    }
+  }
+
+  .loader-box h2 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 4px 0 0;
+  }
+
+  .loader-sub {
+    font-size: 14px;
+    color: var(--text-gray);
+    margin: 0;
+  }
+
   .view {
     position: relative;
     flex: 1;
@@ -295,11 +352,6 @@
 
   .banner .btn {
     height: 32px;
-  }
-
-  .banner.subtle {
-    background: var(--bg-gray);
-    color: var(--text-gray);
   }
 
   .toast {

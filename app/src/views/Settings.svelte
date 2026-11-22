@@ -39,7 +39,7 @@
   </nav>
 
   <p class="version gray">
-    v0.1.7 • engine {status.state}{status.state === "ready" ? ` • ${engineState.providers.length} providers` : ""}
+    v0.1.8 • engine {status.state}{status.state === "ready" ? ` • ${engineState.providers.length} providers` : ""}
   </p>
 </div>
 

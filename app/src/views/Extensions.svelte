@@ -98,7 +98,12 @@
 
   {#if currentTab === "repos"}
     <div class="page list">
-      {#if !ext.repos.length}
+      {#if !ready}
+        <div class="center-fill">
+          <div class="spinner large"></div>
+          <p class="loading-label">Connecting to engine…</p>
+        </div>
+      {:else if !ext.repos.length}
         <div class="center-fill blank">
           <Icon name="extension" size={30} />
           <p>CloudStream has no sites installed by default. You need to install the sites from repositories.</p>

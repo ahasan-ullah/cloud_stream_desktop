@@ -219,15 +219,10 @@
       <button class="btn btn-black" onclick={() => openUrl(url)}><Icon name="public" size={20} /> Open In Browser</button>
     </div>
   {:else if !details}
-    <div class="content">
-      <div class="header">
-        <div class="poster shimmer"></div>
-        <div class="meta-col">
-          <div class="shimmer" style="height: 24px; width: 60%"></div>
-          <div class="shimmer" style="height: 15px; width: 40%"></div>
-          <div class="shimmer" style="height: 15px; width: 90%"></div>
-        </div>
-      </div>
+    <div class="center-fill details-loader">
+      <div class="spinner large"></div>
+      <p class="loading-label">Loading details…</p>
+      {#if title}<span class="gray small">{title}</span>{/if}
     </div>
   {:else}
     <div class="content">

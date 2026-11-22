@@ -171,7 +171,13 @@
           {/each}
         </ScrollRow>
       {:else}
-        {#if !loading}
+        {#if loading}
+          <div class="center-fill search-loader">
+            <div class="spinner large"></div>
+            <p class="loading-label">Searching across providers…</p>
+            {#if search.query}<span class="gray small">“{search.query}”</span>{/if}
+          </div>
+        {:else}
           <div class="center-fill">
             <p>No Data</p>
             {#each search.groups.filter((g) => g.error) as g (g.provider)}

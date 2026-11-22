@@ -107,7 +107,10 @@
   <div class="page list" data-scroll-root>
     {#if repo}
       {#if ext.loadingRepo[repo.url] && !ext.available[repo.url]}
-        <div class="center-fill"><div class="spinner"></div></div>
+        <div class="center-fill">
+          <div class="spinner large"></div>
+          <p class="loading-label">Loading plugins from {repo.name}…</p>
+        </div>
       {/if}
       {#each plugins as p (p.internalName)}
         {@const have = installed.get(p.internalName)}

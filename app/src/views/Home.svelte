@@ -324,13 +324,16 @@
       {/each}
     {/if}
 
-    {#if loading}
-      {#each home ? [0] : [0, 1, 2] as _}
-        <div class="shimmer shimmer-title"></div>
-        <div class="shimmer-row">
-          {#each Array(8) as __}<div class="shimmer shimmer-card"></div>{/each}
-        </div>
-      {/each}
+    {#if loading && !home}
+      <div class="center-fill home-loader">
+        <div class="spinner large"></div>
+        <p class="loading-label">Loading {provider || "catalog"}…</p>
+      </div>
+    {:else if loading}
+      <div class="inline-loader">
+        <div class="spinner small"></div>
+        <span class="gray">Loading more…</span>
+      </div>
     {:else if error}
       <div class="center-fill">
         <p class="error-text">{error}</p>
@@ -679,6 +682,15 @@
     scrollbar-width: none;
   }
 
+  .inline-loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 30px 20px 50px;
+    font-size: 14px;
+  }
+
   .see-all {
     flex-shrink: 0;
     margin: 2px;
@@ -699,26 +711,6 @@
 
   .small {
     font-size: 12px;
-  }
-
-  .shimmer-title {
-    width: 160px;
-    height: 18px;
-    margin: 22px 16px 10px;
-  }
-
-  .shimmer-row {
-    display: flex;
-    gap: 8px;
-    padding: 2px 16px;
-    overflow: hidden;
-  }
-
-  .shimmer-card {
-    flex-shrink: 0;
-    width: 114px;
-    height: 180px;
-    margin: 2px;
   }
 
   .sentinel {
