@@ -166,6 +166,8 @@ export interface InstalledPlugin {
   version?: number;
   providers: string[];
   error?: string;
+  fileName?: string;
+  fileSize?: number;
 }
 
 export interface Repo {
@@ -208,6 +210,7 @@ export const engine = {
   plugins: () => call<InstalledPlugin[]>("GET", "/api/plugins"),
   installPlugin: (url: string, id?: string) => call<InstalledPlugin>("POST", "/api/plugins/install", undefined, { url, id }),
   uninstallPlugin: (id: string) => call<InstalledPlugin[]>("POST", "/api/plugins/uninstall", undefined, { id }),
+  openPluginsFolder: () => call<{ status: string }>("POST", "/api/plugins/open-folder"),
 
   repos: () => call<Repo[]>("GET", "/api/repos"),
   addRepo: (url: string) => call<Repo>("POST", "/api/repos/add", undefined, { url }),

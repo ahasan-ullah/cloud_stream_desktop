@@ -111,6 +111,8 @@ data class PluginDto(
     val version: Int? = null,
     val providers: List<String>,
     val error: String? = null,
+    val fileName: String? = null,
+    val fileSize: Long? = null,
 )
 
 @Serializable

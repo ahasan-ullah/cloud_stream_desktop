@@ -4,7 +4,7 @@
   import Dialog from "../components/Dialog.svelte";
   import Icon from "../components/Icon.svelte";
   import { engine, errorMessage, openUrl, type Repo } from "../lib/api";
-  import { ext, loadRepoPlugins, refreshRepos } from "../lib/extensions.svelte";
+  import { ext, loadRepoPlugins, refreshRepos, uninstallPlugin } from "../lib/extensions.svelte";
   import { router } from "../lib/router.svelte";
   import { engineState, showToast } from "../lib/state.svelte";
 
@@ -15,6 +15,25 @@
   let adding = $state(false);
   let addError = $state("");
   let confirmRemove = $state<Repo | null>(null);
+  let currentTab = $state<"repos" | "installed">("repos");
+  let busy = $state<Record<string, boolean>>({});
+
+  function size(bytes?: number) {
+    if (!bytes) return "";
+    return bytes > 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.round(bytes / 1024)} kB`;
+  }
+
+  async function deletePlugin(id: string) {
+    busy[id] = true;
+    try {
+      await uninstallPlugin(id);
+      showToast("Extension deleted");
+    } catch (e) {
+      showToast(errorMessage(e));
+    } finally {
+      busy[id] = false;
+    }
+  }
 
   const ready = $derived(engineState.status.state === "ready");
 
@@ -62,54 +81,116 @@
   <div class="toolbar">
     <button class="icon-btn" title="Go Back" onclick={() => router.back()}><Icon name="back" size={26} /></button>
     <h1>Extensions</h1>
+    <div class="grow"></div>
+    <button class="icon-btn" title="Open Plugins Folder" onclick={() => engine.openPluginsFolder()}>
+      <Icon name="folder" size={22} />
+    </button>
   </div>
 
-  <div class="page list">
-    {#if !ext.repos.length}
-      <div class="center-fill blank">
-        <Icon name="extension" size={30} />
-        <p>CloudStream has no sites installed by default. You need to install the sites from repositories.</p>
-        <button class="btn btn-white" onclick={() => openUrl(COMMUNITY_REPOS)}>View community repositories</button>
+  <div class="tabs">
+    <button class="tab" class:active={currentTab === "repos"} onclick={() => (currentTab = "repos")}>
+      Repositories <span class="count">{ext.repos.length}</span>
+    </button>
+    <button class="tab" class:active={currentTab === "installed"} onclick={() => (currentTab = "installed")}>
+      Installed Files <span class="count">{ext.installed.length}</span>
+    </button>
+  </div>
+
+  {#if currentTab === "repos"}
+    <div class="page list">
+      {#if !ext.repos.length}
+        <div class="center-fill blank">
+          <Icon name="extension" size={30} />
+          <p>CloudStream has no sites installed by default. You need to install the sites from repositories.</p>
+          <button class="btn btn-white" onclick={() => openUrl(COMMUNITY_REPOS)}>View community repositories</button>
+        </div>
+      {:else}
+        {#each ext.repos as repo (repo.url)}
+          <div class="repo-item">
+            <button class="repo-main" onclick={() => router.push({ name: "plugins", repo })}>
+              <span class="entry-icon"><Icon name="extension" size={22} /></span>
+              <span class="texts">
+                <span class="main-text">{repo.name}</span>
+                <span class="sub-text">{repo.url}</span>
+              </span>
+              {#if ext.loadingRepo[repo.url]}
+                <div class="spinner small"></div>
+              {:else if ext.available[repo.url]}
+                <span class="gray small">{ext.available[repo.url].length} plugins</span>
+              {/if}
+            </button>
+            <button class="icon-btn" title="Delete" onclick={() => (confirmRemove = repo)}><Icon name="delete" size={22} /></button>
+          </div>
+        {/each}
+      {/if}
+      <div style="height: 80px"></div>
+    </div>
+
+    <button class="storage" onclick={() => (currentTab = "installed")} title="Installed plugins">
+      <span class="storage-title">Extensions</span>
+      <span class="bar">
+        <span class="seg downloaded" style:width="{pct(counts.downloaded)}%"></span>
+        <span class="seg disabled" style:width="{pct(counts.disabled)}%"></span>
+        <span class="seg not" style:width="{pct(counts.notDownloaded)}%"></span>
+      </span>
+      <span class="legend">
+        <span><i class="downloaded"></i>Downloaded: {counts.downloaded}</span>
+        <span><i class="disabled"></i>Disabled: {counts.disabled}</span>
+        <span><i class="not"></i>Not downloaded: {counts.notDownloaded}</span>
+      </span>
+    </button>
+
+    <button class="fab add" onclick={() => (addDialog = true)} disabled={!ready}>
+      <Icon name="add" size={24} /> Add repository
+    </button>
+  {:else}
+    <div class="page list installed-list">
+      <div class="folder-header">
+        <span class="folder-desc">All installed extension (.cs3) files on this computer.</span>
+        <button class="btn btn-white open-dir-btn" onclick={() => engine.openPluginsFolder()}>
+          <Icon name="folder" size={18} /> Open Folder
+        </button>
       </div>
-    {:else}
-      {#each ext.repos as repo (repo.url)}
-        <div class="repo-item">
-          <button class="repo-main" onclick={() => router.push({ name: "plugins", repo })}>
+
+      {#if !ext.installed.length}
+        <div class="center-fill blank">
+          <Icon name="extension" size={30} />
+          <p>No extension files installed yet. Install plugins from a repository.</p>
+        </div>
+      {:else}
+        {#each ext.installed as p (p.id)}
+          <div class="item">
             <span class="entry-icon"><Icon name="extension" size={22} /></span>
             <span class="texts">
-              <span class="main-text">{repo.name}</span>
-              <span class="sub-text">{repo.url}</span>
+              <span class="main-text">{p.name}</span>
+              <span class="info">
+                <span class="filename-badge">{p.fileName || `${p.id}.cs3`}</span>
+                {#if p.version != null}<span>v{p.version}</span>{/if}
+                {#if p.fileSize}<span>{size(p.fileSize)}</span>{/if}
+              </span>
+              {#if p.error}
+                <span class="sub-text error-text">{p.error}</span>
+              {:else}
+                <span class="sub-text">{p.providers.join(", ") || "No providers registered"}</span>
+              {/if}
             </span>
-            {#if ext.loadingRepo[repo.url]}
+            {#if busy[p.id]}
               <div class="spinner small"></div>
-            {:else if ext.available[repo.url]}
-              <span class="gray small">{ext.available[repo.url].length} plugins</span>
+            {:else}
+              <button
+                class="icon-btn"
+                title="Delete"
+                onclick={() => deletePlugin(p.id)}
+              >
+                <Icon name="delete" size={22} />
+              </button>
             {/if}
-          </button>
-          <button class="icon-btn" title="Delete" onclick={() => (confirmRemove = repo)}><Icon name="delete" size={22} /></button>
-        </div>
-      {/each}
-    {/if}
-    <div style="height: 80px"></div>
-  </div>
-
-  <button class="storage" onclick={() => router.push({ name: "plugins", repo: null })} title="Installed plugins">
-    <span class="storage-title">Extensions</span>
-    <span class="bar">
-      <span class="seg downloaded" style:width="{pct(counts.downloaded)}%"></span>
-      <span class="seg disabled" style:width="{pct(counts.disabled)}%"></span>
-      <span class="seg not" style:width="{pct(counts.notDownloaded)}%"></span>
-    </span>
-    <span class="legend">
-      <span><i class="downloaded"></i>Downloaded: {counts.downloaded}</span>
-      <span><i class="disabled"></i>Disabled: {counts.disabled}</span>
-      <span><i class="not"></i>Not downloaded: {counts.notDownloaded}</span>
-    </span>
-  </button>
-
-  <button class="fab add" onclick={() => (addDialog = true)} disabled={!ready}>
-    <Icon name="add" size={24} /> Add repository
-  </button>
+          </div>
+        {/each}
+      {/if}
+      <div style="height: 40px"></div>
+    </div>
+  {/if}
 </div>
 
 {#if addDialog}
@@ -146,10 +227,116 @@
     flex-direction: column;
   }
 
+  .grow {
+    flex: 1;
+  }
+
+  .tabs {
+    display: flex;
+    overflow-x: auto;
+    background: var(--bg-gray);
+    scrollbar-width: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    flex-shrink: 0;
+  }
+
+  .tab {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 44px;
+    padding: 0 20px;
+    color: var(--text-gray);
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+
+  .tab.active {
+    color: var(--text);
+  }
+
+  .tab.active::after {
+    content: "";
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: 0;
+    height: 3px;
+    border-radius: 2px 2px 0 0;
+    background: var(--primary);
+  }
+
+  .count {
+    padding: 2px 7px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .folder-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    margin: 8px 16px 12px;
+    background: var(--bg-gray);
+    border-radius: 10px;
+    gap: 12px;
+  }
+
+  .folder-desc {
+    font-size: 13px;
+    color: var(--text-gray);
+  }
+
+  .open-dir-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+
+  .item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 12px 10px 16px;
+  }
+
+  .item:hover {
+    background: var(--ripple);
+  }
+
+  .filename-badge {
+    font-family: monospace;
+    font-size: 11px;
+    background: rgba(255, 255, 255, 0.08);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: var(--primary);
+  }
+
+  .info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-gray);
+  }
+
   .list {
     flex: 1;
     min-height: 0;
     padding: 8px 0;
+    overflow-y: auto;
   }
 
   .blank {

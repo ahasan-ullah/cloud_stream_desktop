@@ -183,6 +183,24 @@ fun Application.engineModule(plugins: PluginHost, repos: RepoStore, token: Strin
                     withContext(Dispatchers.IO) { plugins.uninstall(req.id) }
                     call.respond(plugins.list())
                 }
+                post("/open-folder") {
+                    withContext(Dispatchers.IO) {
+                        try {
+                            val dir = plugins.pluginDirectory
+                            val os = System.getProperty("os.name", "").lowercase()
+                            if (os.contains("win")) {
+                                ProcessBuilder("explorer.exe", dir.absolutePath).start()
+                            } else if (os.contains("mac")) {
+                                ProcessBuilder("open", dir.absolutePath).start()
+                            } else {
+                                ProcessBuilder("xdg-open", dir.absolutePath).start()
+                            }
+                        } catch (e: Exception) {
+                            log.warn("Failed to open plugins folder: {}", e.message)
+                        }
+                    }
+                    call.respond(mapOf("status" to "ok"))
+                }
             }
 
             route("/repos") {

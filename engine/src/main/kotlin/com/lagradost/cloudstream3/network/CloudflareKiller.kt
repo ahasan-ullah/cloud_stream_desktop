@@ -10,8 +10,12 @@ import okhttp3.Response
  * On desktop, we provide this binary-compatible stub so providers referencing it
  * load and execute without NoClassDefFoundError.
  */
-open class CloudflareKiller : Interceptor {
+open class CloudflareKiller(val context: Any? = null) : Interceptor {
+    constructor() : this(null)
+
     val savedCookies: MutableMap<String, Map<String, String>> = mutableMapOf()
+
+    fun getCookie(url: String): Map<String, String>? = savedCookies[url]
 
     override fun intercept(chain: Interceptor.Chain): Response {
         return chain.proceed(chain.request())

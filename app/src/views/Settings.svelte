@@ -13,6 +13,7 @@
     { label: "Layout", icon: "resize", route: { name: "settings-layout" } },
     { label: "Updates and Backup", icon: "autorenew", route: { name: "settings-backup" } },
     { label: "Extensions", icon: "extension", route: { name: "extensions" } },
+    { label: "Installed Extensions", icon: "folder", route: { name: "plugins", repo: null } },
   ];
 
   const status = $derived(engineState.status);
@@ -38,7 +39,7 @@
   </nav>
 
   <p class="version gray">
-    v0.1.2 • engine {status.state}{status.state === "ready" ? ` • ${engineState.providers.length} providers` : ""}
+    v0.1.7 • engine {status.state}{status.state === "ready" ? ` • ${engineState.providers.length} providers` : ""}
   </p>
 </div>
 

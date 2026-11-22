@@ -2,7 +2,7 @@
   // Android res/layout/fragment_plugins.xml + repository_item.xml.
   // repo = null shows the locally installed plugins.
   import Icon from "../components/Icon.svelte";
-  import { errorMessage, type Repo, type RepoPlugin } from "../lib/api";
+  import { engine, errorMessage, type Repo, type RepoPlugin } from "../lib/api";
   import { lazySrc } from "../lib/images";
   import {
     ext,
@@ -87,6 +87,11 @@
     {:else}
       <h1>{repo?.name ?? "Installed plugins"}</h1>
       <div class="grow"></div>
+      {#if !repo}
+        <button class="icon-btn" title="Open Plugins Folder" onclick={() => engine.openPluginsFolder()}>
+          <Icon name="folder" size={22} />
+        </button>
+      {/if}
       <button class="icon-btn" title="Search" onclick={() => (searching = true)}><Icon name="search" size={24} /></button>
     {/if}
   </div>
@@ -160,7 +165,11 @@
           <span class="entry-icon"><Icon name="extension" size={22} /></span>
           <span class="texts">
             <span class="main-text">{p.name}</span>
-            <span class="info">{#if p.version != null}<span>v{p.version}</span>{/if}</span>
+            <span class="info">
+              <span class="filename-badge">{p.fileName || `${p.id}.cs3`}</span>
+              {#if p.version != null}<span>v{p.version}</span>{/if}
+              {#if p.fileSize}<span>{size(p.fileSize)}</span>{/if}
+            </span>
             {#if p.error}
               <span class="sub-text error-text">{p.error}</span>
             {:else}
@@ -252,6 +261,15 @@
     display: flex;
     flex-direction: column;
     gap: 3px;
+  }
+
+  .filename-badge {
+    font-family: monospace;
+    font-size: 11px;
+    background: rgba(255, 255, 255, 0.08);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: var(--primary);
   }
 
   .main-text {

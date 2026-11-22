@@ -203,6 +203,8 @@ class PluginHost(
         extractorApis.removeAll { it.sourcePlugin == path }
     }
 
+    val pluginDirectory: File get() = pluginDir
+
     private fun providersOf(file: File): List<MainAPI> =
         APIHolder.allProviders.filter { it.sourcePlugin == file.absolutePath }
 
@@ -212,6 +214,8 @@ class PluginHost(
         version = manifest?.version,
         providers = providersOf(file).map { it.name },
         error = error,
+        fileName = file.name,
+        fileSize = if (file.exists()) file.length() else null,
     )
 
     private fun sanitize(name: String) = name.replace(Regex("[^A-Za-z0-9._-]"), "_").trim('.', '_')
