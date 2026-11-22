@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "com.cloudstream.engine"
-version = "0.1.5"
+version = "0.1.6"
 
 val cloudstreamVersion: String by project
 val ktorVersion = "3.5.0"
@@ -16,6 +16,7 @@ val ktorVersion = "3.5.0"
 dependencies {
     // Provider interfaces, NiceHttp and the built-in video host extractors.
     implementation("com.github.recloudstream.cloudstream:library-jvm:$cloudstreamVersion")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     implementation("io.ktor:ktor-server-cio:$ktorVersion")
     implementation("io.ktor:ktor-server-content-negotiation:$ktorVersion")

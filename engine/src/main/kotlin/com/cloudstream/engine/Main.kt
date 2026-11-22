@@ -1,8 +1,12 @@
 package com.cloudstream.engine
 
 import android.content.DesktopContext
+import com.fasterxml.jackson.core.JsonParser
+import com.fasterxml.jackson.databind.*
 import com.fasterxml.jackson.databind.introspect.AnnotatedMember
 import com.fasterxml.jackson.databind.introspect.AnnotationIntrospectorPair
+import com.fasterxml.jackson.databind.module.SimpleDeserializers
+import com.fasterxml.jackson.databind.module.SimpleModule
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.mapper
 import com.lagradost.cloudstream3.plugins.RepositoryManager
@@ -42,17 +46,56 @@ fun main() {
     try {
         val original = mapper.serializationConfig.annotationIntrospector
         if (original != null) {
-            val safe = object : AnnotationIntrospectorPair(original, null) {
-                override fun hasRequiredMarker(m: AnnotatedMember): Boolean? {
-                    return try {
-                        _primary?.hasRequiredMarker(m)
-                    } catch (t: Throwable) {
-                        null
-                    }
+            val safe = object : AnnotationIntrospectorPair(original, AnnotationIntrospector.nopInstance()) {
+                override fun hasRequiredMarker(m: AnnotatedMember): Boolean? = try {
+                    _primary.hasRequiredMarker(m)
+                } catch (_: Throwable) {
+                    null
+                }
+
+                override fun findDefaultCreator(
+                    config: com.fasterxml.jackson.databind.cfg.MapperConfig<*>,
+                    valueClass: com.fasterxml.jackson.databind.introspect.AnnotatedClass,
+                    declaredConstructors: MutableList<com.fasterxml.jackson.databind.introspect.PotentialCreator>,
+                    declaredFactories: MutableList<com.fasterxml.jackson.databind.introspect.PotentialCreator>
+                ): com.fasterxml.jackson.databind.introspect.PotentialCreator? = try {
+                    _primary.findDefaultCreator(config, valueClass, declaredConstructors, declaredFactories)
+                } catch (_: Throwable) {
+                    null
+                }
+
+                override fun findImplicitPropertyName(m: AnnotatedMember): String? = try {
+                    _primary.findImplicitPropertyName(m)
+                } catch (_: Throwable) {
+                    null
                 }
             }
             mapper.setAnnotationIntrospector(safe)
         }
+
+        val sm = SimpleModule().apply {
+            setDeserializers(object : SimpleDeserializers() {
+                override fun findBeanDeserializer(
+                    type: JavaType,
+                    config: DeserializationConfig,
+                    beanDesc: BeanDescription
+                ): JsonDeserializer<*>? {
+                    if (type.rawClass.name.endsWith("VerifiedRepo")) {
+                        return object : JsonDeserializer<Any>() {
+                            override fun deserialize(p: JsonParser, ctxt: DeserializationContext): Any? {
+                                val node = p.codec.readTree<JsonNode>(p)
+                                val url = node.get("url")?.asText()
+                                val verified = node.get("verified")?.asBoolean()
+                                val ctor = type.rawClass.constructors.firstOrNull { it.parameterTypes.size == 2 }
+                                return ctor?.newInstance(url, verified)
+                            }
+                        }
+                    }
+                    return null
+                }
+            })
+        }
+        mapper.registerModule(sm)
     } catch (e: Throwable) {
         // Safe fallback if mapper internals change
     }
